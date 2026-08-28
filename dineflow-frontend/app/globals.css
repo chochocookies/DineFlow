@@ -1,0 +1,291 @@
+@import "tailwindcss";
+
+/*
+  DineFlow has two visual identities on purpose:
+  - Customer side (menu, cart, order status): warm, appetite-triggering,
+    grounded in Indonesian warung colour language (sambal red, turmeric
+    gold, banana-leaf green) rather than generic "food app" orange.
+  - Kitchen Display: dark and utilitarian like a real commercial KDS,
+    optimized for glance-legibility under kitchen lighting/glare.
+  Both share the same type system and the "ticket" motif (notched edges +
+  a dashed perforation) — this product digitizes a literal paper order
+  ticket, so that object shows up as the recurring signature throughout.
+*/
+
+:root {
+  --bg: #faf3e7;
+  --surface: #fffdf8;
+  --ink: #241c15;
+  --ink-muted: #6b5d4c;
+  --border: #e4dacb;
+
+  --primary: #c8401e;
+  --primary-dark: #a6350f;
+  --primary-tint: #f6e3da;
+
+  --secondary: #dfa23b;
+  --secondary-tint: #f9ecd4;
+
+  --success: #3d9142;
+  --success-tint: #e2f0e0;
+  --danger: #dc2626;
+  --danger-tint: #fbe4e2;
+
+  --kds-bg: #17130f;
+  --kds-surface: #241e17;
+  --kds-surface-raised: #2e261c;
+  --kds-text: #f2ece0;
+  --kds-muted: #a89a85;
+  --kds-new: #ffb648;
+  --kds-preparing: #4fc3f7;
+  --kds-ready: #3ecf6e;
+  --kds-urgent: #ff5a4e;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-border: var(--border);
+
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-tint: var(--primary-tint);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-tint: var(--secondary-tint);
+
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+
+  --color-kds-bg: var(--kds-bg);
+  --color-kds-surface: var(--kds-surface);
+  --color-kds-surface-raised: var(--kds-surface-raised);
+  --color-kds-text: var(--kds-text);
+  --color-kds-muted: var(--kds-muted);
+  --color-kds-new: var(--kds-new);
+  --color-kds-preparing: var(--kds-preparing);
+  --color-kds-ready: var(--kds-ready);
+  --color-kds-urgent: var(--kds-urgent);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-data: var(--font-data);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+/* ---- Ticket motif: notched sides + dashed perforation ----
+   Used on the cart summary, order confirmation, and Kitchen Display order
+   cards. `--notch-bg` should match whatever surface sits BEHIND the
+   ticket, since the notches are punched using that colour. */
+.ticket {
+  --notch-bg: var(--bg);
+  position: relative;
+}
+.ticket::before,
+.ticket::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  background: var(--notch-bg);
+  border-radius: 9999px;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+.ticket::before {
+  left: -9px;
+}
+.ticket::after {
+  right: -9px;
+}
+.ticket-perforation {
+  border-top: 2px dashed var(--border);
+  position: relative;
+}
+.ticket-perforation::before,
+.ticket-perforation::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  background: var(--notch-bg, var(--bg));
+  border-radius: 9999px;
+}
+.ticket-perforation::before {
+  left: -9px;
+}
+.ticket-perforation::after {
+  right: -9px;
+}
+
+.kds-ticket-perforation {
+  border-top: 2px dashed #3a3126;
+}
+.kds-ticket {
+  --notch-bg: var(--kds-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-in {
+    animation: slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .new-order-pulse {
+    animation: pulse-border 1.6s ease-in-out 2;
+  }
+  .toast-in {
+    animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .modal-pop {
+    animation: modal-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .backdrop-fade {
+    animation: backdrop-fade 0.2s ease-out;
+  }
+  .status-flash {
+    animation: status-flash 1.1s ease-out;
+  }
+  .spin-slow {
+    animation: spin 0.9s linear infinite;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-border {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 182, 72, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 182, 72, 0);
+  }
+}
+
+/* ---- Toast / confirm-dialog / live-status motion ----
+   Same restrained language as the two keyframes above: short, physical,
+   and gone in the reduced-motion case rather than swapped for something
+   else. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes backdrop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Brief highlight for a badge/value that just changed via a live
+   WebSocket event (e.g. a table flipping back to "Tersedia") — draws the
+   eye without an ongoing/looping animation. */
+@keyframes status-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(61, 145, 66, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(61, 145, 66, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(61, 145, 66, 0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Small "pop" on a quantity number right after it changes — paired with a
+   `key={quantity}` on the element so React remounts it and the animation
+   actually replays on every +/- tap instead of only on first mount. */
+@keyframes qty-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .qty-pop {
+    animation: qty-pop 0.25s ease-out;
+  }
+}
+
+/* ---- Printing a single receipt out of a full admin/customer page ----
+   Used by components/order/receipt.tsx (class "receipt-print" on its root)
+   together with either the admin preview modal or the customer's
+   payment-proof view. Hiding everything and re-revealing just this one
+   subtree is the standard trick for "print one component, not the page
+   it's embedded in" without needing a separate print-only route. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+  .receipt-print {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    max-width: 100%;
+    border-radius: 0;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
