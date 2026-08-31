@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrEmailTaken = errors.New("email already registered")
-	ErrNotFound   = errors.New("staff not found")
+	ErrEmailTaken         = errors.New("email already registered")
+	ErrNotFound           = errors.New("staff not found")
+	ErrRestaurantNotFound = errors.New("restaurant not found")
 )
 
 type Repository struct {
@@ -29,6 +30,47 @@ func (r *Repository) CreateRestaurant(ctx context.Context, name string) (string,
 		`INSERT INTO restaurants (name) VALUES ($1) RETURNING id`, name,
 	).Scan(&id)
 	return id, err
+}
+
+// GetRestaurantByID powers both the public restaurant-landing-page lookup
+// and the admin Settings page's "load my current profile" call — same row,
+// same columns either way; RegisterPublicRestaurantRoutes vs. an
+// authenticated route decides who's allowed to call it, not this method.
+func (r *Repository) GetRestaurantByID(ctx context.Context, id string) (*entity.Restaurant, error) {
+	var rst entity.Restaurant
+	var description, address, phone sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, name, description, address, phone, created_at, updated_at FROM restaurants WHERE id = $1`, id,
+	).Scan(&rst.ID, &rst.Name, &description, &address, &phone, &rst.CreatedAt, &rst.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrRestaurantNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	rst.Description = description.String
+	rst.Address = address.String
+	rst.Phone = phone.String
+	return &rst, nil
+}
+
+// UpdateRestaurantDescription is deliberately narrow (just the one field)
+// rather than a general-purpose restaurant update — name/address/phone
+// aren't editable through the API yet at all, so there's no existing
+// pattern for "update the rest of these fields too" to extend here.
+func (r *Repository) UpdateRestaurantDescription(ctx context.Context, id, description string) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE restaurants SET description = $1, updated_at = now() WHERE id = $2`,
+		description, id,
+	)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return ErrRestaurantNotFound
+	}
+	return nil
 }
 
 func (r *Repository) CreateStaff(ctx context.Context, s *entity.Staff) (string, error) {
@@ -135,7 +177,7 @@ func (r *Repository) Delete(ctx context.Context, id, restaurantID string) error 
 // customer-app alternative to scanning a table QR code directly.
 func (r *Repository) ListRestaurants(ctx context.Context) ([]entity.Restaurant, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, address, phone, created_at, updated_at FROM restaurants ORDER BY name`,
+		`SELECT id, name, description, address, phone, created_at, updated_at FROM restaurants ORDER BY name`,
 	)
 	if err != nil {
 		return nil, err
@@ -145,10 +187,11 @@ func (r *Repository) ListRestaurants(ctx context.Context) ([]entity.Restaurant, 
 	restaurants := []entity.Restaurant{}
 	for rows.Next() {
 		var rst entity.Restaurant
-		var address, phone sql.NullString
-		if err := rows.Scan(&rst.ID, &rst.Name, &address, &phone, &rst.CreatedAt, &rst.UpdatedAt); err != nil {
+		var description, address, phone sql.NullString
+		if err := rows.Scan(&rst.ID, &rst.Name, &description, &address, &phone, &rst.CreatedAt, &rst.UpdatedAt); err != nil {
 			return nil, err
 		}
+		rst.Description = description.String
 		rst.Address = address.String
 		rst.Phone = phone.String
 		restaurants = append(restaurants, rst)

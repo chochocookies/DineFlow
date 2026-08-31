@@ -34,6 +34,13 @@ type CreateRestaurantRequest struct {
 	Name string `json:"name" binding:"required,min=2"`
 }
 
+// UpdateRestaurantRequest edits the CURRENT restaurant's public-facing
+// profile (used by the landing page) — deliberately just the one field for
+// now; see Repository.UpdateRestaurantDescription.
+type UpdateRestaurantRequest struct {
+	Description string `json:"description" binding:"max=2000"`
+}
+
 type AuthResponse struct {
 	Token string      `json:"token"`
 	Staff StaffPublic `json:"staff"`

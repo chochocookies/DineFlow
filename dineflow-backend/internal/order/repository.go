@@ -88,7 +88,7 @@ func (r *Repository) Create(ctx context.Context, o *entity.Order, deductions []I
 
 func (r *Repository) itemsByOrderID(ctx context.Context, orderID string) ([]entity.OrderItem, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT oi.id, oi.order_id, oi.menu_id, m.name, oi.quantity, oi.price, oi.notes, oi.created_at
+		`SELECT oi.id, oi.order_id, oi.menu_id, m.name, m.prep_time_minutes, oi.quantity, oi.price, oi.notes, oi.created_at
 		 FROM order_items oi JOIN menus m ON m.id = oi.menu_id
 		 WHERE oi.order_id = $1 ORDER BY oi.created_at`, orderID,
 	)
@@ -100,7 +100,7 @@ func (r *Repository) itemsByOrderID(ctx context.Context, orderID string) ([]enti
 	items := []entity.OrderItem{}
 	for rows.Next() {
 		var it entity.OrderItem
-		if err := rows.Scan(&it.ID, &it.OrderID, &it.MenuID, &it.MenuName,
+		if err := rows.Scan(&it.ID, &it.OrderID, &it.MenuID, &it.MenuName, &it.PrepTimeMinutes,
 			&it.Quantity, &it.Price, &it.Notes, &it.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -112,8 +112,10 @@ func (r *Repository) itemsByOrderID(ctx context.Context, orderID string) ([]enti
 func (r *Repository) scanOrder(row *sql.Row) (*entity.Order, error) {
 	var o entity.Order
 	var paymentMethod, paymentReference sql.NullString
+	var preparingStartedAt sql.NullTime
 	err := row.Scan(&o.ID, &o.RestaurantID, &o.TableID, &o.OrderCode, &o.Status, &o.PaymentStatus,
-		&o.Subtotal, &o.Tax, &o.ServiceFee, &o.Total, &o.Notes, &paymentMethod, &paymentReference, &o.CreatedAt, &o.UpdatedAt)
+		&o.Subtotal, &o.Tax, &o.ServiceFee, &o.Total, &o.Notes, &paymentMethod, &paymentReference,
+		&preparingStartedAt, &o.CreatedAt, &o.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -122,10 +124,13 @@ func (r *Repository) scanOrder(row *sql.Row) (*entity.Order, error) {
 	}
 	o.PaymentMethod = paymentMethod.String
 	o.PaymentReference = paymentReference.String
+	if preparingStartedAt.Valid {
+		o.PreparingStartedAt = &preparingStartedAt.Time
+	}
 	return &o, nil
 }
 
-const orderColumns = `id, restaurant_id, table_id, order_code, status, payment_status, subtotal, tax, service_fee, total, notes, payment_method, payment_reference, created_at, updated_at`
+const orderColumns = `id, restaurant_id, table_id, order_code, status, payment_status, subtotal, tax, service_fee, total, notes, payment_method, payment_reference, preparing_started_at, created_at, updated_at`
 
 // FindByCode is the public, unauthenticated lookup a customer uses to track
 // their own order — the order_code (e.g. "DF3F9A2B") acts as a lightweight
@@ -180,12 +185,17 @@ func (r *Repository) ListByRestaurant(ctx context.Context, restaurantID, statusF
 	for rows.Next() {
 		var o entity.Order
 		var paymentMethod, paymentReference sql.NullString
+		var preparingStartedAt sql.NullTime
 		if err := rows.Scan(&o.ID, &o.RestaurantID, &o.TableID, &o.OrderCode, &o.Status, &o.PaymentStatus,
-			&o.Subtotal, &o.Tax, &o.ServiceFee, &o.Total, &o.Notes, &paymentMethod, &paymentReference, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			&o.Subtotal, &o.Tax, &o.ServiceFee, &o.Total, &o.Notes, &paymentMethod, &paymentReference,
+			&preparingStartedAt, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, err
 		}
 		o.PaymentMethod = paymentMethod.String
 		o.PaymentReference = paymentReference.String
+		if preparingStartedAt.Valid {
+			o.PreparingStartedAt = &preparingStartedAt.Time
+		}
 		orders = append(orders, o)
 	}
 	if err := rows.Err(); err != nil {
@@ -226,9 +236,28 @@ func (r *Repository) CountActiveByTable(ctx context.Context, tableID, excludeOrd
 }
 
 func (r *Repository) UpdateStatus(ctx context.Context, id, restaurantID, status string) error {
+	// isPreparing is computed here rather than as `$1 = 'preparing'` inside
+	// the CASE below: reusing $1 in a second context (compared bare against
+	// a string literal) made Postgres's parameter-type inference see two
+	// different types for the same parameter — the status column's
+	// `character varying` from the SET clause vs. `text` from the literal
+	// comparison — and reject the query with "inconsistent types deduced
+	// for parameter $1" the moment it went through the extended query
+	// protocol (which is what database/sql always uses; psql -c with a
+	// literal value never hits this, which is exactly why it looked fine
+	// there). A dedicated, unambiguously-typed parameter sidesteps the
+	// whole issue instead of fighting it with casts.
+	isPreparing := status == "preparing"
+
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE orders SET status = $1, updated_at = now() WHERE id = $2 AND restaurant_id = $3`,
-		status, id, restaurantID,
+		`UPDATE orders SET status = $1,
+		 preparing_started_at = CASE
+		     WHEN $4 AND preparing_started_at IS NULL THEN now()
+		     ELSE preparing_started_at
+		 END,
+		 updated_at = now()
+		 WHERE id = $2 AND restaurant_id = $3`,
+		status, id, restaurantID, isPreparing,
 	)
 	if err != nil {
 		return err

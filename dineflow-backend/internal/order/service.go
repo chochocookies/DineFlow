@@ -108,11 +108,12 @@ func (s *Service) CreateOrder(ctx context.Context, req CreateOrderRequest) (*ent
 		}
 		subtotal += m.Price * float64(in.Quantity)
 		items = append(items, entity.OrderItem{
-			MenuID:   m.ID,
-			MenuName: m.Name,
-			Quantity: in.Quantity,
-			Price:    m.Price, // snapshot at order time; menu price may change later
-			Notes:    in.Notes,
+			MenuID:          m.ID,
+			MenuName:        m.Name,
+			PrepTimeMinutes: m.PrepTimeMinutes,
+			Quantity:        in.Quantity,
+			Price:           m.Price, // snapshot at order time; menu price may change later
+			Notes:           in.Notes,
 		})
 	}
 

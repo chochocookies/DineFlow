@@ -24,6 +24,7 @@ export function MenuFormSheet({
     description: "",
     price: 0,
     image_url: "",
+    prep_time_minutes: 15,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +37,10 @@ export function MenuFormSheet({
         description: editing.description ?? "",
         price: editing.price,
         image_url: editing.image_url ?? "",
+        prep_time_minutes: editing.prep_time_minutes,
       });
     } else {
-      setForm({ category: "", name: "", description: "", price: 0, image_url: "" });
+      setForm({ category: "", name: "", description: "", price: 0, image_url: "", prep_time_minutes: 15 });
     }
     setError(null);
   }, [editing, open]);
@@ -122,6 +124,22 @@ export function MenuFormSheet({
               onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
               className="font-data w-full rounded-xl border border-border bg-bg px-3.5 py-2.5 text-sm text-ink focus:border-primary"
             />
+          </Field>
+
+          <Field label="Estimasi Waktu Masak (menit)">
+            <input
+              required
+              type="number"
+              min={1}
+              step={1}
+              value={form.prep_time_minutes || ""}
+              onChange={(e) => setForm({ ...form, prep_time_minutes: Number(e.target.value) })}
+              className="font-data w-full rounded-xl border border-border bg-bg px-3.5 py-2.5 text-sm text-ink focus:border-primary"
+            />
+            <p className="mt-1 text-xs text-ink-muted">
+              Dipakai buat hitung mundur "waktu masak" yang dilihat customer
+              setelah pesanan mulai diproses dapur.
+            </p>
           </Field>
 
           <Field label="URL Foto (opsional)">

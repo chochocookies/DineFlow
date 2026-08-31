@@ -43,18 +43,26 @@ type Order struct {
 	Notes            string        `json:"notes,omitempty"`
 	PaymentMethod    string        `json:"payment_method,omitempty"`
 	PaymentReference string        `json:"payment_reference,omitempty"`
-	CreatedAt        time.Time     `json:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at"`
-	Items            []OrderItem   `json:"items,omitempty"`
+	// PreparingStartedAt is set once, the first time status becomes
+	// "preparing" (see order.Repository.UpdateStatus), and never touched
+	// again — it's the fixed reference point the customer-facing cooking
+	// countdown counts down from, so it has to survive later status
+	// changes rather than following "most recent status change" the way
+	// UpdatedAt does.
+	PreparingStartedAt *time.Time  `json:"preparing_started_at,omitempty"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
+	Items              []OrderItem `json:"items,omitempty"`
 }
 
 type OrderItem struct {
-	ID        string    `json:"id"`
-	OrderID   string    `json:"order_id"`
-	MenuID    string    `json:"menu_id"`
-	MenuName  string    `json:"menu_name,omitempty"`
-	Quantity  int       `json:"quantity"`
-	Price     float64   `json:"price"`
-	Notes     string    `json:"notes,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	OrderID         string    `json:"order_id"`
+	MenuID          string    `json:"menu_id"`
+	MenuName        string    `json:"menu_name,omitempty"`
+	PrepTimeMinutes int       `json:"prep_time_minutes,omitempty"`
+	Quantity        int       `json:"quantity"`
+	Price           float64   `json:"price"`
+	Notes           string    `json:"notes,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
 }

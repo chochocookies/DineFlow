@@ -16,6 +16,7 @@ export interface ApiFailure {
 export interface Restaurant {
   id: string;
   name: string;
+  description?: string;
   address?: string;
   phone?: string;
 }
@@ -44,6 +45,7 @@ export interface Menu {
   price: number;
   image_url?: string;
   is_available: boolean;
+  prep_time_minutes: number;
 }
 
 export type OrderStatus =
@@ -62,6 +64,7 @@ export interface OrderItem {
   order_id: string;
   menu_id: string;
   menu_name: string;
+  prep_time_minutes?: number;
   quantity: number;
   price: number;
   notes?: string;
@@ -81,6 +84,11 @@ export interface Order {
   notes?: string;
   payment_method?: string;
   payment_reference?: string;
+  // Set once, the first time status becomes "preparing" — see the backend
+  // README's Phase 9 note. Absent until then; unchanged afterward even if
+  // status changes again, so it's a stable anchor for the cooking-time
+  // countdown in OrderTracker.
+  preparing_started_at?: string;
   created_at: string;
   updated_at: string;
   items: OrderItem[];

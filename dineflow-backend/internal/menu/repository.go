@@ -20,11 +20,18 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+const menuColumns = `id, restaurant_id, category, name, description, price, image_url, is_available, prep_time_minutes, created_at, updated_at`
+
+func scanMenu(row interface{ Scan(...interface{}) error }, m *entity.Menu) error {
+	return row.Scan(&m.ID, &m.RestaurantID, &m.Category, &m.Name, &m.Description,
+		&m.Price, &m.ImageURL, &m.IsAvailable, &m.PrepTimeMinutes, &m.CreatedAt, &m.UpdatedAt)
+}
+
 func (r *Repository) Create(ctx context.Context, m *entity.Menu) (string, error) {
 	err := r.db.QueryRowContext(ctx,
-		`INSERT INTO menus (restaurant_id, category, name, description, price, image_url, is_available)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at, updated_at`,
-		m.RestaurantID, m.Category, m.Name, m.Description, m.Price, m.ImageURL, m.IsAvailable,
+		`INSERT INTO menus (restaurant_id, category, name, description, price, image_url, is_available, prep_time_minutes)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at, updated_at`,
+		m.RestaurantID, m.Category, m.Name, m.Description, m.Price, m.ImageURL, m.IsAvailable, m.PrepTimeMinutes,
 	).Scan(&m.ID, &m.CreatedAt, &m.UpdatedAt)
 	return m.ID, err
 }
@@ -35,8 +42,7 @@ func (r *Repository) Create(ctx context.Context, m *entity.Menu) (string, error)
 // use the one from the JWT (see handler.go).
 func (r *Repository) ListByRestaurant(ctx context.Context, restaurantID string) ([]entity.Menu, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, restaurant_id, category, name, description, price, image_url, is_available, created_at, updated_at
-		 FROM menus WHERE restaurant_id = $1 ORDER BY category, name`, restaurantID,
+		`SELECT `+menuColumns+` FROM menus WHERE restaurant_id = $1 ORDER BY category, name`, restaurantID,
 	)
 	if err != nil {
 		return nil, err
@@ -46,8 +52,7 @@ func (r *Repository) ListByRestaurant(ctx context.Context, restaurantID string) 
 	menus := []entity.Menu{}
 	for rows.Next() {
 		var m entity.Menu
-		if err := rows.Scan(&m.ID, &m.RestaurantID, &m.Category, &m.Name, &m.Description,
-			&m.Price, &m.ImageURL, &m.IsAvailable, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		if err := scanMenu(rows, &m); err != nil {
 			return nil, err
 		}
 		menus = append(menus, m)
@@ -60,8 +65,7 @@ func (r *Repository) ListByRestaurant(ctx context.Context, restaurantID string) 
 // management view which needs to see everything to toggle it back on.
 func (r *Repository) ListAvailableByRestaurant(ctx context.Context, restaurantID string) ([]entity.Menu, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, restaurant_id, category, name, description, price, image_url, is_available, created_at, updated_at
-		 FROM menus WHERE restaurant_id = $1 AND is_available = true ORDER BY category, name`, restaurantID,
+		`SELECT `+menuColumns+` FROM menus WHERE restaurant_id = $1 AND is_available = true ORDER BY category, name`, restaurantID,
 	)
 	if err != nil {
 		return nil, err
@@ -71,8 +75,7 @@ func (r *Repository) ListAvailableByRestaurant(ctx context.Context, restaurantID
 	menus := []entity.Menu{}
 	for rows.Next() {
 		var m entity.Menu
-		if err := rows.Scan(&m.ID, &m.RestaurantID, &m.Category, &m.Name, &m.Description,
-			&m.Price, &m.ImageURL, &m.IsAvailable, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		if err := scanMenu(rows, &m); err != nil {
 			return nil, err
 		}
 		menus = append(menus, m)
@@ -88,8 +91,7 @@ func (r *Repository) FindByIDs(ctx context.Context, restaurantID string, ids []s
 		return nil, nil
 	}
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, restaurant_id, category, name, description, price, image_url, is_available, created_at, updated_at
-		 FROM menus WHERE restaurant_id = $1 AND id = ANY($2)`, restaurantID, pq.Array(ids),
+		`SELECT `+menuColumns+` FROM menus WHERE restaurant_id = $1 AND id = ANY($2)`, restaurantID, pq.Array(ids),
 	)
 	if err != nil {
 		return nil, err
@@ -99,8 +101,7 @@ func (r *Repository) FindByIDs(ctx context.Context, restaurantID string, ids []s
 	menus := []entity.Menu{}
 	for rows.Next() {
 		var m entity.Menu
-		if err := rows.Scan(&m.ID, &m.RestaurantID, &m.Category, &m.Name, &m.Description,
-			&m.Price, &m.ImageURL, &m.IsAvailable, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		if err := scanMenu(rows, &m); err != nil {
 			return nil, err
 		}
 		menus = append(menus, m)
@@ -110,15 +111,13 @@ func (r *Repository) FindByIDs(ctx context.Context, restaurantID string, ids []s
 
 func (r *Repository) FindByID(ctx context.Context, id, restaurantID string) (*entity.Menu, error) {
 	var m entity.Menu
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, restaurant_id, category, name, description, price, image_url, is_available, created_at, updated_at
-		 FROM menus WHERE id = $1 AND restaurant_id = $2`, id, restaurantID,
-	).Scan(&m.ID, &m.RestaurantID, &m.Category, &m.Name, &m.Description,
-		&m.Price, &m.ImageURL, &m.IsAvailable, &m.CreatedAt, &m.UpdatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT `+menuColumns+` FROM menus WHERE id = $1 AND restaurant_id = $2`, id, restaurantID,
+	)
+	if err := scanMenu(row, &m); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return &m, nil
@@ -127,9 +126,9 @@ func (r *Repository) FindByID(ctx context.Context, id, restaurantID string) (*en
 func (r *Repository) Update(ctx context.Context, m *entity.Menu) error {
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE menus SET category = $1, name = $2, description = $3, price = $4,
-		 image_url = $5, is_available = $6, updated_at = now()
-		 WHERE id = $7 AND restaurant_id = $8`,
-		m.Category, m.Name, m.Description, m.Price, m.ImageURL, m.IsAvailable, m.ID, m.RestaurantID,
+		 image_url = $5, is_available = $6, prep_time_minutes = $7, updated_at = now()
+		 WHERE id = $8 AND restaurant_id = $9`,
+		m.Category, m.Name, m.Description, m.Price, m.ImageURL, m.IsAvailable, m.PrepTimeMinutes, m.ID, m.RestaurantID,
 	)
 	if err != nil {
 		return err

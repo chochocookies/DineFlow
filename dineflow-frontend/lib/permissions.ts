@@ -4,13 +4,17 @@
 // boundary: the backend is what actually enforces roles; this only keeps
 // the frontend honest about what each role can already do.
 //
-//   /dashboard/*   -> owner, manager   (internal/dashboard)
-//   /ingredients/* -> owner, manager   (internal/inventory, "ingredients" group)
-//   /staff/*       -> owner, manager   (internal/staff)
+//   /dashboard/*    -> owner, manager   (internal/dashboard)
+//   /ingredients/*  -> owner, manager   (internal/inventory, "ingredients" group)
+//   /staff/*        -> owner, manager   (internal/staff)
+//   /restaurants/me -> owner only       (internal/auth, restaurant profile —
+//                      stricter than the rest of this tier: starting/editing
+//                      the restaurant itself is owner-level, not manager-level)
 //   everything else staff-facing (menus, tables, orders except the
 //   payment PATCH, which orders/page.tsx already gates inline) -> any
 //   authenticated role
 const ELEVATED_ROLES = ["owner", "manager"];
+const OWNER_ONLY = ["owner"];
 
 export const ADMIN_PAGES = [
   { href: "/admin", roles: ELEVATED_ROLES },
@@ -19,6 +23,7 @@ export const ADMIN_PAGES = [
   { href: "/admin/tables", roles: null },
   { href: "/admin/inventory", roles: ELEVATED_ROLES },
   { href: "/admin/staff", roles: ELEVATED_ROLES },
+  { href: "/admin/settings", roles: OWNER_ONLY },
 ] as const;
 
 export function canAccessPage(role: string, href: string): boolean {

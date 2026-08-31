@@ -150,6 +150,68 @@ cuma curl), jadi taruh di sini:
 
 ## Struktur Project
 
+**Phase 9 — Landing Page, Estimasi Waktu Masak, & Deskripsi Restoran** ✅ *baru*
+
+Tiga fitur baru di sini, dan tiga bug asli yang ketemu pas testing
+end-to-end-nya (bukan cuma `go build`/`go vet` — dua-duanya bersih padahal
+ketiga bug ini ada, jadi dicatat detail biar jelas kenapa saya keukeuh
+nyalain server beneran tiap kali ada perubahan di layer SQL/routing):
+
+- **`restaurants.description`** (migrasi 000012) — teks bebas buat halaman
+  landing publik restoran. `GET/PATCH /restaurants/me` (owner-only, restoran
+  sendiri dari JWT) buat admin edit, `GET /public/restaurants/:restaurant_id`
+  (tanpa auth) buat landing page baca. `cmd/seed` otomatis ngisi deskripsi
+  contoh kalau masih kosong (nggak nimpa yang udah diisi manual).
+- **`menus.prep_time_minutes`** (migrasi 000013, default 15, `CHECK > 0`) —
+  estimasi waktu masak per item, dipakai countdown di sisi customer.
+  `cmd/seed` ngasih nilai realistis per item (minuman 1-5 menit, gorengan
+  8-10 menit, sate 20 menit, dst) — bukan cuma pasrah ke default.
+- **`orders.preparing_started_at`** (migrasi 000014, nullable) — di-set
+  SEKALI, pertama kali status jadi `preparing` (lihat
+  `order.Repository.UpdateStatus`), dan nggak pernah ditimpa lagi walau
+  status berubah lagi setelahnya — biar jadi titik acuan yang stabil buat
+  countdown di frontend, bukan ngikut `updated_at` yang berubah tiap
+  update apapun (termasuk yang nggak ada hubungannya sama masak-memasak).
+
+**Tiga bug yang ketemu pas testing (urut sesuai ditemukannya):**
+
+1. **Gin panic pas start**: `GET /public/restaurants/:restaurant_id` (baru)
+   ditaruh di grup yang sama dengan `menu.Handler`'s
+   `GET /public/restaurants/:restaurant_id/menus` (lama) — awalnya saya
+   pakai nama parameter `:id`, beda sama punya menu (`:restaurant_id`).
+   Gin nggak izinin dua nama wildcard beda di posisi tree yang sama, jadi
+   langsung panic pas `main()` jalan, bukan pas request masuk. Perbaikannya
+   gampang begitu ketauan: samain namanya jadi `:restaurant_id` di kedua
+   handler.
+2. **`prep_time_minutes` hilang di response order yang BARU dibuat** (tapi
+   muncul normal kalau di-GET ulang) — `order.Service.CreateOrder` bikin
+   `entity.OrderItem` manual di Go dari data menu yang udah di-fetch
+   (`FindByIDs`), dan saya lupa nyalin field `PrepTimeMinutes`-nya padahal
+   datanya udah ada di tangan. Jalur baca (`itemsByOrderID`, JOIN ke
+   `menus`) udah bener dari awal — cuma jalur create-nya yang kelewatan.
+3. **`ERROR: inconsistent types deduced for parameter $1`** — ini yang
+   paling nggak kelihatan kalau cuma dites lewat `psql -c` biasa. Query
+   `UpdateStatus` awalnya pakai `$1` dua kali: sekali di `status = $1`
+   (kolom `character varying`), sekali lagi di
+   `CASE WHEN $1 = 'preparing' ...` (dibandingin ke literal teks, yang
+   default-nya `text`). Postgres nolak nyimpulin SATU tipe konsisten buat
+   `$1` yang dipakai di dua konteks beda gitu — tapi CUMA lewat extended
+   query protocol (yang dipakai `database/sql`/`lib/pq`); `psql -c` dengan
+   value literal nggak pernah lewat jalur itu, jadi kelihatan baik-baik aja
+   pas saya tes manual duluan. Sempet coba `$1::text` buat cast salah satu
+   sisi, tetep gagal (Postgres tetep anggep `text` vs `character varying`
+   sebagai dua tipe beda, walau saling bisa di-convert). Perbaikan yang
+   akhirnya jalan: itung `status == "preparing"` di Go dulu (jadi
+   `bool`), kirim sebagai `$4` yang terpisah — nggak ada lagi parameter
+   yang dipakai dobel di konteks tipe yang beda.
+
+Ketiga hal ini nggak bakal ketauan cuma dari baca kode atau dari
+`go build`/`go vet` — makanya bagian "Menjalankan" di bawah worth
+diikutin persis kalau kamu nambah query SQL baru yang pakai parameter yang
+sama di lebih dari satu tempat.
+
+## Struktur Project
+
 ```
 dineflow-backend/
 ├── cmd/api/main.go            # entry point, wiring semua module
@@ -157,8 +219,8 @@ dineflow-backend/
 ├── internal/
 │   ├── config/                  # load environment variables
 │   ├── entity/                    # struct model (Restaurant, Staff, Table, Menu, Order, OrderItem)
-│   ├── auth/                      # register, login staff, + add staff (POST /staff)
-│   ├── menu/                      # CRUD menu (+ endpoint publik list menu tersedia)
+│   ├── auth/                      # register, login staff, + add staff (POST /staff), + restaurant profile (Phase 9: GET/PATCH /restaurants/me, GET /public/restaurants/:restaurant_id)
+│   ├── menu/                      # CRUD menu (+ endpoint publik list menu tersedia) + prep_time_minutes (Phase 9)
 │   ├── table/                     # CRUD meja + QR token (+ endpoint publik scan QR)
 │   ├── order/                     # order customer (publik) + status & pembayaran (staff)
 │   ├── payment/                   # charge QRIS (publik) + terima webhook gateway

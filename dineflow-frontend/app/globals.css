@@ -140,28 +140,37 @@ body {
   --notch-bg: var(--kds-bg);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .animate-in {
-    animation: slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .new-order-pulse {
-    animation: pulse-border 1.6s ease-in-out 2;
-  }
-  .toast-in {
-    animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .modal-pop {
-    animation: modal-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .backdrop-fade {
-    animation: backdrop-fade 0.2s ease-out;
-  }
-  .status-flash {
-    animation: status-flash 1.1s ease-out;
-  }
-  .spin-slow {
-    animation: spin 0.9s linear infinite;
-  }
+/* Animations play unconditionally — the earlier version gated every one
+   of these behind `prefers-reduced-motion: no-preference`, which sounds
+   like the safe default but actually means a single environment-level
+   flag (an OS accessibility toggle, a VM/remote-desktop default, or a
+   forgotten "Emulate prefers-reduced-motion: reduce" override left on in
+   Chrome DevTools' Rendering tab — all common on dev machines) silently
+   disables every animation in the app at once with no visible error,
+   which is exactly what made these hard to verify while testing. The
+   override below still respects a real reduced-motion preference, but by
+   shortening/removing motion rather than gating it out entirely, so
+   default dev/prod environments always show it. */
+.animate-in {
+  animation: slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.new-order-pulse {
+  animation: pulse-border 1.6s ease-in-out 2;
+}
+.toast-in {
+  animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-pop {
+  animation: modal-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.backdrop-fade {
+  animation: backdrop-fade 0.2s ease-out;
+}
+.status-flash {
+  animation: status-flash 1.1s ease-out;
+}
+.spin-slow {
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes slide-up {
@@ -256,9 +265,29 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
+.qty-pop {
+  animation: qty-pop 0.25s ease-out;
+}
+
+/* A real accessibility preference still wins: entrance/attention effects
+   (which add motion without changing what information is on screen) drop
+   out entirely; toast/modal fades collapse to effectively instant instead
+   of disappearing, since those correspond to something actually appearing
+   — losing the transition there would just make it feel broken rather
+   than calmer. spin-slow is left alone in both cases: it's the only one
+   that IS the information (a loading state), not decoration on top of it. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .toast-in,
+  .modal-pop,
+  .backdrop-fade {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+  .new-order-pulse,
+  .status-flash,
   .qty-pop {
-    animation: qty-pop 0.25s ease-out;
+    animation: none;
   }
 }
 

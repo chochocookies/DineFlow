@@ -1,6 +1,7 @@
-// Command seed populates a restaurant with a starter menu so the ordering
-// flow, Kitchen Display, and dashboard best-sellers all have something to
-// show during local testing instead of an empty list.
+// Command seed populates a restaurant with a starter menu (and, if it
+// doesn't already have one, a sample description) so the ordering flow,
+// Kitchen Display, landing page, and dashboard best-sellers all have
+// something to show during local testing instead of an empty list.
 //
 // Usage:
 //
@@ -8,7 +9,10 @@
 //	go run ./cmd/seed --restaurant=<uuid>     # seeds a specific restaurant
 //
 // It's safe to run more than once — menu items are matched by name per
-// restaurant, so anything already there is skipped rather than duplicated.
+// restaurant, so anything already there is skipped rather than duplicated,
+// and the description is only ever set if the restaurant doesn't already
+// have one (so it never clobbers something you wrote yourself through the
+// admin Settings page).
 package main
 
 import (
@@ -27,6 +31,11 @@ type menuSeed struct {
 	Name        string
 	Description string
 	Price       float64
+	// Rough real-world prep times: drinks and pre-made desserts are
+	// mostly plating (a few minutes), grilled/fried mains take longest.
+	// Feeds the order-tracker's cooking-time countdown once an order
+	// reaches "preparing" — see order.Repository.UpdateStatus.
+	PrepMinutes int
 }
 
 // A representative Indonesian warung menu spread across the categories
@@ -35,30 +44,30 @@ type menuSeed struct {
 // section there).
 var seedMenus = []menuSeed{
 	// Makanan Utama
-	{"Makanan Utama", "Nasi Goreng Kampung", "Nasi goreng bumbu merah dengan telur mata sapi dan kerupuk", 28000},
-	{"Makanan Utama", "Ayam Geprek Sambal Bawang", "Ayam goreng tepung digeprek dengan sambal bawang pedas", 25000},
-	{"Makanan Utama", "Mie Ayam Bakso", "Mie ayam dengan topping bakso dan pangsit goreng", 22000},
-	{"Makanan Utama", "Soto Ayam Lamongan", "Soto ayam kuah kuning dengan koya dan telur rebus", 24000},
-	{"Makanan Utama", "Nasi Padang Rendang", "Nasi dengan rendang sapi, sayur singkong, dan sambal ijo", 32000},
-	{"Makanan Utama", "Gado-Gado Jakarta", "Sayuran rebus dengan bumbu kacang dan kerupuk", 20000},
-	{"Makanan Utama", "Sate Ayam (10 tusuk)", "Sate ayam bumbu kacang dengan lontong", 27000},
-	{"Makanan Utama", "Nasi Uduk Komplit", "Nasi uduk dengan ayam goreng, tempe orek, dan sambal kacang", 26000},
+	{"Makanan Utama", "Nasi Goreng Kampung", "Nasi goreng bumbu merah dengan telur mata sapi dan kerupuk", 28000, 15},
+	{"Makanan Utama", "Ayam Geprek Sambal Bawang", "Ayam goreng tepung digeprek dengan sambal bawang pedas", 25000, 18},
+	{"Makanan Utama", "Mie Ayam Bakso", "Mie ayam dengan topping bakso dan pangsit goreng", 22000, 12},
+	{"Makanan Utama", "Soto Ayam Lamongan", "Soto ayam kuah kuning dengan koya dan telur rebus", 24000, 15},
+	{"Makanan Utama", "Nasi Padang Rendang", "Nasi dengan rendang sapi, sayur singkong, dan sambal ijo", 32000, 10},
+	{"Makanan Utama", "Gado-Gado Jakarta", "Sayuran rebus dengan bumbu kacang dan kerupuk", 20000, 10},
+	{"Makanan Utama", "Sate Ayam (10 tusuk)", "Sate ayam bumbu kacang dengan lontong", 27000, 20},
+	{"Makanan Utama", "Nasi Uduk Komplit", "Nasi uduk dengan ayam goreng, tempe orek, dan sambal kacang", 26000, 12},
 	// Camilan
-	{"Camilan", "Tahu Isi Goreng", "Tahu goreng isi sayuran, 5 buah", 12000},
-	{"Camilan", "Pisang Goreng Keju", "Pisang goreng crispy dengan taburan keju parut", 15000},
-	{"Camilan", "Tempe Mendoan", "Tempe goreng tepung setengah matang, 6 potong", 13000},
-	{"Camilan", "Cireng Bumbu Rujak", "Aci goreng dengan saus bumbu rujak pedas manis", 14000},
+	{"Camilan", "Tahu Isi Goreng", "Tahu goreng isi sayuran, 5 buah", 12000, 8},
+	{"Camilan", "Pisang Goreng Keju", "Pisang goreng crispy dengan taburan keju parut", 15000, 10},
+	{"Camilan", "Tempe Mendoan", "Tempe goreng tepung setengah matang, 6 potong", 13000, 8},
+	{"Camilan", "Cireng Bumbu Rujak", "Aci goreng dengan saus bumbu rujak pedas manis", 14000, 8},
 	// Minuman
-	{"Minuman", "Es Teh Manis", "Teh manis dingin", 6000},
-	{"Minuman", "Es Jeruk Peras", "Jeruk peras segar dengan es", 10000},
-	{"Minuman", "Kopi Susu Gula Aren", "Kopi susu dengan gula aren khas nusantara", 18000},
-	{"Minuman", "Es Cendol", "Cendol dengan santan dan gula merah", 15000},
-	{"Minuman", "Air Mineral", "Air mineral dalam kemasan botol", 5000},
-	{"Minuman", "Jus Alpukat", "Jus alpukat kental dengan susu cokelat", 16000},
+	{"Minuman", "Es Teh Manis", "Teh manis dingin", 6000, 3},
+	{"Minuman", "Es Jeruk Peras", "Jeruk peras segar dengan es", 10000, 4},
+	{"Minuman", "Kopi Susu Gula Aren", "Kopi susu dengan gula aren khas nusantara", 18000, 5},
+	{"Minuman", "Es Cendol", "Cendol dengan santan dan gula merah", 15000, 4},
+	{"Minuman", "Air Mineral", "Air mineral dalam kemasan botol", 5000, 1},
+	{"Minuman", "Jus Alpukat", "Jus alpukat kental dengan susu cokelat", 16000, 5},
 	// Dessert
-	{"Dessert", "Es Krim Goreng", "Es krim vanila dibalut tepung roti lalu digoreng", 18000},
-	{"Dessert", "Pisang Ijo", "Pisang dibalut adonan hijau dengan saus santan", 16000},
-	{"Dessert", "Puding Roti", "Puding roti dengan saus vanila", 14000},
+	{"Dessert", "Es Krim Goreng", "Es krim vanila dibalut tepung roti lalu digoreng", 18000, 10},
+	{"Dessert", "Pisang Ijo", "Pisang dibalut adonan hijau dengan saus santan", 16000, 10},
+	{"Dessert", "Puding Roti", "Puding roti dengan saus vanila", 14000, 5},
 }
 
 func main() {
@@ -82,9 +91,19 @@ func main() {
 
 	inserted, skipped, err := seedMenuItems(ctx, db, restaurantID)
 	if err != nil {
-		log.Fatalf("seeding failed: %v", err)
+		log.Fatalf("seeding menu failed: %v", err)
 	}
-	fmt.Printf("Done — %d menu item(s) added, %d already existed and were skipped.\n", inserted, skipped)
+	fmt.Printf("Menu: %d item(s) added, %d already existed and were skipped.\n", inserted, skipped)
+
+	wroteDescription, err := seedDescription(ctx, db, restaurantID, restaurantName)
+	if err != nil {
+		log.Fatalf("seeding description failed: %v", err)
+	}
+	if wroteDescription {
+		fmt.Println("Description: added a sample one (was empty).")
+	} else {
+		fmt.Println("Description: already set, left as-is.")
+	}
 }
 
 // resolveRestaurant looks up the restaurant to seed: by ID if one was
@@ -138,9 +157,9 @@ func seedMenuItems(ctx context.Context, db *sql.DB, restaurantID string) (insert
 		}
 
 		_, err = db.ExecContext(ctx,
-			`INSERT INTO menus (restaurant_id, category, name, description, price, image_url, is_available)
-			 VALUES ($1, $2, $3, $4, $5, $6, true)`,
-			restaurantID, m.Category, m.Name, m.Description, m.Price, "",
+			`INSERT INTO menus (restaurant_id, category, name, description, price, image_url, is_available, prep_time_minutes)
+			 VALUES ($1, $2, $3, $4, $5, $6, true, $7)`,
+			restaurantID, m.Category, m.Name, m.Description, m.Price, "", m.PrepMinutes,
 		)
 		if err != nil {
 			return inserted, skipped, err
@@ -148,4 +167,31 @@ func seedMenuItems(ctx context.Context, db *sql.DB, restaurantID string) (insert
 		inserted++
 	}
 	return inserted, skipped, nil
+}
+
+// seedDescription sets a sample "about this restaurant" blurb for the new
+// public landing page — but only if the restaurant doesn't already have
+// one, so re-running the seeder (or running it after you've written a real
+// description through the admin Settings page) never overwrites it.
+func seedDescription(ctx context.Context, db *sql.DB, restaurantID, restaurantName string) (wrote bool, err error) {
+	var current sql.NullString
+	err = db.QueryRowContext(ctx, `SELECT description FROM restaurants WHERE id = $1`, restaurantID).Scan(&current)
+	if err != nil {
+		return false, err
+	}
+	if current.Valid && current.String != "" {
+		return false, nil
+	}
+
+	description := fmt.Sprintf(
+		"%s menyajikan masakan rumahan Indonesia dengan resep turun-temurun. "+
+			"Semua menu dibuat fresh setiap hari pakai bahan-bahan berkualitas — "+
+			"dari nasi goreng sampai es cendol, dimasak dengan perhatian seperti di rumah sendiri.",
+		restaurantName,
+	)
+	_, err = db.ExecContext(ctx, `UPDATE restaurants SET description = $1, updated_at = now() WHERE id = $2`, description, restaurantID)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

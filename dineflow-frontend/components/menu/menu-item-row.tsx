@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { formatRupiah } from "@/lib/format";
 import { menuImageUrl } from "@/lib/placeholder";
+import { Clock } from "lucide-react";
 import type { Menu } from "@/lib/types";
 
 export function MenuItemRow({ menu, index = 0 }: { menu: Menu; index?: number }) {
@@ -46,6 +47,10 @@ export function MenuItemRow({ menu, index = 0 }: { menu: Menu; index?: number })
             {menu.description}
           </p>
         )}
+        <span className="mt-1 flex items-center gap-1 text-xs text-ink-muted">
+          <Clock size={11} />
+          ~{menu.prep_time_minutes} menit
+        </span>
         <div className="mt-auto flex items-center justify-between pt-2">
           <span className="font-data text-sm font-medium text-ink">
             {formatRupiah(menu.price)}

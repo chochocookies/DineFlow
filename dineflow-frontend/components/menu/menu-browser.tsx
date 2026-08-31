@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { Menu, TableWithRestaurant } from "@/lib/types";
 import { useCart } from "@/lib/cart-context";
 import { formatRupiah } from "@/lib/format";
 import { MenuItemRow } from "./menu-item-row";
 import { CartSheet } from "./cart-sheet";
+import { Info } from "lucide-react";
 
 export function MenuBrowser({
   qrToken,
@@ -49,12 +51,24 @@ export function MenuBrowser({
   return (
     <main className="min-h-dvh bg-bg pb-28">
       <header className="sticky top-0 z-20 bg-bg/95 backdrop-blur px-5 pt-6 pb-3 shadow-[0_1px_0_var(--border)]">
-        <p className="font-display text-2xl font-semibold text-ink">
-          {tableInfo.restaurant_name}
-        </p>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          Meja {tableInfo.table.code}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-display text-2xl font-semibold text-ink">
+              {tableInfo.restaurant_name}
+            </p>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              Meja {tableInfo.table.code}
+            </p>
+          </div>
+          <Link
+            href={`/r/${tableInfo.table.restaurant_id}`}
+            target="_blank"
+            className="mt-1 flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-ink-muted"
+          >
+            <Info size={13} />
+            Tentang Kami
+          </Link>
+        </div>
         <input
           type="search"
           value={query}

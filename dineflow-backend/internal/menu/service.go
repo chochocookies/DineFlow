@@ -14,15 +14,27 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
+// DefaultPrepTimeMinutes matches the DB column's default (see migration
+// 000013) — kept here too so Service.Create can apply the same fallback
+// in Go before the row is even inserted, since binding:"omitempty" on
+// CreateMenuRequest means a caller that omits the field sends a Go zero
+// value (0), not "use the column default".
+const DefaultPrepTimeMinutes = 15
+
 func (s *Service) Create(ctx context.Context, restaurantID string, req CreateMenuRequest) (*entity.Menu, error) {
+	prepTime := req.PrepTimeMinutes
+	if prepTime <= 0 {
+		prepTime = DefaultPrepTimeMinutes
+	}
 	m := &entity.Menu{
-		RestaurantID: restaurantID,
-		Category:     req.Category,
-		Name:         req.Name,
-		Description:  req.Description,
-		Price:        req.Price,
-		ImageURL:     req.ImageURL,
-		IsAvailable:  true,
+		RestaurantID:    restaurantID,
+		Category:        req.Category,
+		Name:            req.Name,
+		Description:     req.Description,
+		Price:           req.Price,
+		ImageURL:        req.ImageURL,
+		IsAvailable:     true,
+		PrepTimeMinutes: prepTime,
 	}
 	id, err := s.repo.Create(ctx, m)
 	if err != nil {
@@ -74,6 +86,9 @@ func (s *Service) Update(ctx context.Context, id, restaurantID string, req Updat
 	}
 	if req.IsAvailable != nil {
 		m.IsAvailable = *req.IsAvailable
+	}
+	if req.PrepTimeMinutes != nil {
+		m.PrepTimeMinutes = *req.PrepTimeMinutes
 	}
 
 	if err := s.repo.Update(ctx, m); err != nil {

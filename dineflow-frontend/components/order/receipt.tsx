@@ -8,12 +8,15 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 // Renders identically wherever it's used — the admin preview/print modal
 // (see receipt-modal.tsx) and the customer's payment-proof view in
-// order-tracker.tsx both just hand it an Order. Deliberately has no
-// restaurant name/logo: that would need a new "get my restaurant" lookup
-// the backend doesn't expose to every role today (only an owner-only
-// POST /restaurants and a cross-tenant public list — neither is really
-// "fetch my own restaurant's name"), so this leads with the receipt itself
-// rather than half-wiring branding that isn't reliably available yet.
+// order-tracker.tsx both just hand it an Order. Still has no restaurant
+// name/logo, but not for lack of an endpoint anymore — Phase 9 added
+// GET /restaurants/me (admin) and GET /public/restaurants/:restaurant_id
+// (public), either of which could supply one now. It's just not wired
+// through yet: doing so means threading a restaurant name/description
+// down as a prop from every caller (Orders page, Dashboard, OrderTracker),
+// and OrderTracker specifically would need an extra fetch it doesn't
+// currently make. Left as a follow-up (see README's "Selanjutnya") rather
+// than half-wiring it under time pressure.
 export function Receipt({ order, tableCode }: { order: Order; tableCode?: string }) {
   const paid = order.payment_status === "paid";
 

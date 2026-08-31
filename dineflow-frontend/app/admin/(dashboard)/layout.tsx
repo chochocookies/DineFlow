@@ -8,6 +8,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Settings,
   Table2,
   Users,
   UtensilsCrossed,
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/admin/tables", label: "Meja", icon: Table2 },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes },
   { href: "/admin/staff", label: "Staf", icon: Users },
+  { href: "/admin/settings", label: "Pengaturan", icon: Settings },
 ];
 
 export default function AdminLayout({

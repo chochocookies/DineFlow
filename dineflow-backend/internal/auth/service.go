@@ -155,6 +155,20 @@ func (s *Service) ListRestaurants(ctx context.Context) ([]entity.Restaurant, err
 	return s.repo.ListRestaurants(ctx)
 }
 
+// GetRestaurant backs both the public landing page and the admin Settings
+// page — see Repository.GetRestaurantByID's comment for why one method
+// serves both.
+func (s *Service) GetRestaurant(ctx context.Context, id string) (*entity.Restaurant, error) {
+	return s.repo.GetRestaurantByID(ctx, id)
+}
+
+func (s *Service) UpdateRestaurant(ctx context.Context, id string, req UpdateRestaurantRequest) (*entity.Restaurant, error) {
+	if err := s.repo.UpdateRestaurantDescription(ctx, id, req.Description); err != nil {
+		return nil, err
+	}
+	return s.repo.GetRestaurantByID(ctx, id)
+}
+
 func (s *Service) ListStaff(ctx context.Context, restaurantID string) ([]StaffPublic, error) {
 	staff, err := s.repo.ListByRestaurant(ctx, restaurantID)
 	if err != nil {

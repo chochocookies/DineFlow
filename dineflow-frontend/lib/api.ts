@@ -74,6 +74,12 @@ export function listRestaurants() {
   return request<Restaurant[]>("/api/v1/public/restaurants");
 }
 
+// Backs the public restaurant landing page (app/r/[restaurantId]) — name +
+// description, no auth needed, same trust level as the QR ordering flow.
+export function getRestaurantProfile(restaurantId: string) {
+  return request<Restaurant>(`/api/v1/public/restaurants/${restaurantId}`);
+}
+
 export function getTableByQrToken(qrToken: string) {
   return request<TableWithRestaurant>(`/api/v1/public/tables/${qrToken}`);
 }
@@ -130,6 +136,24 @@ export function login(email: string, password: string) {
   });
 }
 
+// Both always act on the caller's own restaurant (from the JWT) — there's
+// no id parameter to get wrong. Owner-only on the backend (mirrors
+// lib/permissions.ts's separate "owner only" tier, distinct from the
+// owner+manager tier everything else in Settings-adjacent pages uses).
+export function getMyRestaurant(token: string) {
+  return request<Restaurant>("/api/v1/restaurants/me", {
+    headers: authHeaders(token),
+  });
+}
+
+export function updateMyRestaurant(token: string, description: string) {
+  return request<Restaurant>("/api/v1/restaurants/me", {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ description }),
+  });
+}
+
 export function listOrders(token: string, status?: string) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return request<Order[]>(`/api/v1/orders${qs}`, {
@@ -171,6 +195,7 @@ export interface MenuInput {
   description?: string;
   price: number;
   image_url?: string;
+  prep_time_minutes?: number;
 }
 
 export function createMenu(token: string, input: MenuInput) {

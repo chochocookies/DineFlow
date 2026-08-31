@@ -10,6 +10,7 @@ import {
 import { formatRupiah, statusLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Receipt } from "@/components/order/receipt";
+import { CookingCountdown } from "@/components/order/cooking-countdown";
 import { CircleCheckBig, FlaskConical, Loader2, Printer, QrCode } from "lucide-react";
 import type { Order, OrderStatus, QRISCharge } from "@/lib/types";
 
@@ -161,6 +162,12 @@ export function OrderTracker({
             );
           })}
         </ol>
+      )}
+
+      {order.status === "preparing" && (
+        <div className="mb-5">
+          <CookingCountdown order={order} />
+        </div>
       )}
 
       <div className="ticket bg-surface rounded-2xl px-4 pt-4">

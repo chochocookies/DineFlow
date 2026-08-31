@@ -50,6 +50,34 @@ inventory, sales summary), halaman Pesanan/Cashier, dan dukungan PWA.
   **belum** bisa saya verifikasi: WebSocket-triggered refetch di
   dashboard, hasil cetak struk, dan animasi/placeholder gambar menu
   beneran kelihatan benar di browser — sama seperti keterbatasan di atas.
+- **Phase 9 (landing page, estimasi waktu masak, fix animasi)** —
+  `tsc --noEmit` dan `next build` bersih. Tiga catatan:
+  - **Animasi kenapa nggak kelihatan pas `npm run dev`**: bukan bug kode —
+    semua animasi (termasuk yang dari sebelum Phase 9) dibungkus
+    `@media (prefers-reduced-motion: no-preference)`, jadi kalau OS/browser
+    kamu lagi report `reduce` (gampang ke-set nggak sengaja di VM/remote
+    desktop, atau ketinggalan nyala di Chrome DevTools' Rendering tab),
+    SEMUA animasi mati serentak tanpa error apapun. Sekarang animasinya
+    jalan default, dan preferensi reduced-motion cuma memperhalus
+    (collapse ke durasi ~0 buat entrance/toast/modal, `animation: none`
+    buat yang sifatnya pengulangan kayak pulse), bukan menghilangkan.
+  - **`components/order/cooking-countdown.tsx` sempat kena error ESLint
+    baru** (`react-hooks/purity`, dari versi `eslint-plugin-react-hooks`
+    yang lebih strict di Next 16): manggil `Date.now()` langsung di body
+    komponen dianggap "impure" karena hasilnya beda tiap render — bukan
+    cuma soal gaya, di jalur fallback (kalau `preparing_started_at`
+    somehow kosong) ini beneran bisa geser baseline countdown tiap
+    re-render. Dipindah ke `useState(() => ...)` (lazy initializer,
+    dihitung sekali doang pas mount) — errornya hilang dan bug-nya juga
+    ikut kefix.
+  - **`lib/permissions.ts` dapet tier baru**: `/admin/settings` khusus
+    `owner` (BUKAN owner+manager kayak Dashboard/Inventory/Staff) — ini
+    saya cek langsung ke `cmd/api/main.go`
+    (`restaurantGroup.Use(..., RequireRole("owner"))`), terus diverifikasi
+    empiris juga: bikin akun manager beneran, tembak
+    `GET /restaurants/me`, hasilnya 403 (punya owner 200). Jangan disamain
+    sama tier owner+manager yang lain kalau nanti nambah halaman baru di
+    grup ini.
 
 ## Konsep desain
 
@@ -80,8 +108,9 @@ dineflow-frontend/
 │   ├── manifest.ts              # Web App Manifest (Next.js convention)
 │   ├── globals.css             # design tokens (Tailwind v4 @theme) + motif tiket
 │   ├── page.tsx                 # landing/demo — input qr_token manual buat testing
+│   ├── r/[restaurantId]/        # landing page PUBLIK restoran (Phase 9) — profil + full menu, read-only, no cart
 │   ├── order/[qrToken]/         # menu browsing (server component, fetch table+menu)
-│   ├── o/[code]/                 # tracking status order + bayar QRIS
+│   ├── o/[code]/                 # tracking status order + bayar QRIS + countdown waktu masak + bukti bayar
 │   ├── kitchen/
 │   │   ├── login/                 # login staff
 │   │   └── page.tsx               # Kitchen Display — WebSocket real-time
@@ -91,7 +120,8 @@ dineflow-frontend/
 │           ├── layout.tsx           # auth guard + ROLE guard (lib/permissions.ts), nav difilter per role
 │           ├── page.tsx              # -> /admin: sales summary, best sellers, status/meja/stok sekilas, transaksi terbaru — live via WebSocket
 │           ├── orders/               # daftar pesanan real-time + konfirmasi bayar cash + selesaikan pesanan + preview/cetak struk
-│           ├── menu/                 # CRUD menu + tombol "Resep" per item + thumbnail
+│           ├── menu/                 # CRUD menu (+ waktu masak) + tombol "Resep" per item + thumbnail
+│           ├── settings/             # (Phase 9, owner-only) edit deskripsi restoran buat landing page
 │           ├── tables/               # CRUD meja + modal QR code
 │           ├── inventory/            # CRUD ingredient + adjust stok (owner/manager saja)
 │           └── staff/                # CRUD staf (owner/manager saja)
@@ -99,7 +129,7 @@ dineflow-frontend/
 │   ├── ui/                      # Button, status badges, Toast, ConfirmDialog
 │   ├── auth/                    # LoginForm (dipakai kitchen & admin; redirect abis login role-aware buat admin)
 │   ├── menu/                    # MenuBrowser, MenuItemRow (placeholder gambar + animasi), CartSheet
-│   ├── order/                   # OrderTracker (timeline + QRIS + struk bukti bayar), Receipt, useReceiptPreview (modal preview/cetak)
+│   ├── order/                   # OrderTracker (timeline + QRIS + struk bukti bayar + countdown), Receipt, useReceiptPreview, CookingCountdown
 │   ├── kitchen/                 # OrderTicket
 │   └── admin/                   # MenuFormSheet, RecipeFormSheet, TableQrModal, StaffFormSheet, IngredientFormSheet, StockAdjustModal
 ├── lib/
@@ -262,9 +292,16 @@ dineflow-frontend/
 - **Kolom `min_stock` per ingredient** — biar widget "Stok Menipis" di
   dashboard bisa bandingin stok terhadap ambang batas yang beneran
   berarti, bukan cuma angka mentah (lihat catatan di atas)
-- **Restaurant name di struk** — `Receipt` sengaja belum nampilin nama
-  restoran (lihat komentar di `components/order/receipt.tsx`) karena
-  belum ada endpoint "get restoran saya" yang kebuka buat semua role;
-  yang ada sekarang cuma `POST /restaurants` (owner-only, buat bikin
-  restoran baru) dan daftar publik lintas-tenant. Kalau mau nama restoran
-  ikut kecetak, tambahin endpoint kecil semacam `GET /restaurants/me`.
+- **Restaurant name di struk** — `Receipt` masih belum nampilin nama
+  restoran. Endpoint-nya sekarang UDAH ADA sejak Phase 9
+  (`GET /restaurants/me` buat admin, `GET /public/restaurants/:restaurant_id`
+  buat yang publik) — cuma belum di-wire ke komponen `Receipt` itu sendiri.
+  Tinggal oper `restaurant.name` sebagai prop dari pemanggilnya (orders
+  page & dashboard udah py `staff`/token buat fetch itu; `OrderTracker`
+  perlu tambahan satu fetch lagi ke endpoint publik di atas).
+- **Link ke landing page (`/r/[restaurantId]`) dari luar aplikasi** — saat
+  ini cuma bisa diakses kalau tau restaurant_id-nya (lewat tombol "Tentang
+  Kami" di halaman order, atau link "Lihat halaman landing publik" di
+  Settings). Belum ada slug yang gampang diinget/dibagi (misal
+  `/r/kopi-kita` bukan `/r/803199aa-...`) — perlu kolom `slug` baru di
+  `restaurants` kalau mau itu.
