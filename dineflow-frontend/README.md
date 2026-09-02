@@ -79,6 +79,32 @@ inventory, sales summary), halaman Pesanan/Cashier, dan dukungan PWA.
     sama tier owner+manager yang lain kalau nanti nambah halaman baru di
     grup ini.
 
+- **Phase 10 (landing page produk, halaman register, show/hide password)**
+  — `tsc --noEmit`, `next build`, dan `eslint` (di file yang diubah phase
+  ini) semuanya bersih. Verifikasi fungsional: request `register()` yang
+  baru (`lib/api.ts`) saya tes langsung ke backend beneran (bukan cuma
+  baca DTO-nya) — payload persis sama, dapat `201` + token + role
+  `owner`, jadi redirect ke `firstAccessiblePage("owner")` (`/admin`)
+  bakal bener. Yang **belum** bisa saya verifikasi: tampilan visual
+  halaman `/` yang baru dan validasi form register beneran kelihatan
+  benar di browser (input real-time, pesan error muncul di tempat yang
+  pas) — keterbatasan sandbox yang sama kayak di atas.
+  - `/` sebelumnya cuma alat testing lokal (input `qr_token` manual) —
+    itu tetap ada, tapi sekarang jadi salah satu bagian di bawah, bukan
+    satu-satunya isi halaman. Landing page individual tiap restoran
+    (`/r/[restaurantId]`, dari Phase 9) nggak berubah — ini beda hal:
+    `/` sekarang halaman promosi produk DineFlow itu sendiri, `/r/...`
+    tetap halaman profil masing-masing restoran.
+  - Halaman `/register` baru, plus `components/ui/password-input.tsx`
+    (toggle show/hide, dipakai di form register DAN login) dan validasi
+    client-side di form register yang persis niru aturan binding
+    `internal/auth.RegisterRequest` di backend (nama min 2 karakter,
+    email valid, password min 8 karakter) + cek konfirmasi password.
+    Form login sendiri nggak ditambah validasi ekstra di luar toggle
+    password — itu udah cukup terlayani sama pengecekan `required`/
+    `type="email"` bawaan browser, dan kesalahan password/email tetap
+    dari respons error backend.
+
 ## Konsep desain
 
 Dua identitas visual yang disengaja:

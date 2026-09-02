@@ -136,6 +136,22 @@ export function login(email: string, password: string) {
   });
 }
 
+// Creates a restaurant together with its first staff account, who becomes
+// the owner — see internal/auth.RegisterRequest on the backend. There's no
+// separate "create restaurant" step for a first-time signup; this does
+// both at once.
+export function register(
+  restaurantName: string,
+  name: string,
+  email: string,
+  password: string,
+) {
+  return request<AuthResponse>("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ restaurant_name: restaurantName, name, email, password }),
+  });
+}
+
 // Both always act on the caller's own restaurant (from the JWT) — there's
 // no id parameter to get wrong. Owner-only on the backend (mirrors
 // lib/permissions.ts's separate "owner only" tier, distinct from the

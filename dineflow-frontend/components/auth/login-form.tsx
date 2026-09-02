@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { ApiError, login } from "@/lib/api";
 import { setStoredAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function LoginForm({
   title,
   subtitle,
   redirectTo,
+  footer,
 }: {
   title: string;
   subtitle: string;
@@ -17,6 +19,10 @@ export function LoginForm({
    *  the admin login uses the latter so each role lands on the first page
    *  it's actually allowed to use (see lib/permissions.ts). */
   redirectTo: string | ((role: string) => string);
+  /** Optional content below the form — e.g. admin login's "belum punya
+   *  akun? Daftar" link. Kept out of this component's own markup since
+   *  only the admin login needs it, not kitchen login. */
+  footer?: React.ReactNode;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -43,7 +49,7 @@ export function LoginForm({
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-kds-bg px-6">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-kds-bg px-6">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-2xl bg-kds-surface p-7"
@@ -67,13 +73,11 @@ export function LoginForm({
 
         <label className="mt-4 block text-sm text-kds-muted">
           Password
-          <input
-            type="password"
-            required
+          <PasswordInput
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-white/10 bg-kds-bg px-3.5 py-2.5 text-kds-text placeholder:text-kds-muted focus:border-kds-preparing"
+            onChange={setPassword}
             placeholder="••••••••"
+            autoComplete="current-password"
           />
         </label>
 
@@ -87,6 +91,7 @@ export function LoginForm({
           {submitting ? "Masuk…" : "Masuk"}
         </Button>
       </form>
+      {footer}
     </main>
   );
 }
